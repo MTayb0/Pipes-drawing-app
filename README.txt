@@ -1,5 +1,5 @@
-ENGINEERING STUDIO - Package 1
-Contents: Pipe sketch (3D, dimensions, cut list, 4-view print sheet), Calculators, Field Handbook.
+ENGINEERING STUDIO - Package 2
+Contents: Draw 2D (lines, rectangles, circles, text, dimensions, snap, move, copy, rotate 90, undo, print PDF), Pipe 3D sketch (3D, dimensions, cut list, 4-view print sheet), Calculators, Field Handbook.
 
 QUICK START (no install, works offline)
 1. Extract the ZIP on the phone. 2. Open index.html in Chrome.

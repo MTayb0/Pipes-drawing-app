@@ -24,10 +24,11 @@ th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--ln);white-s
 #ps{display:none}
 @media print{@page{size:A4 landscape;margin:10mm}body>*:not(#ps){display:none!important}#ps{display:block;color:#000;background:#fff}body{background:#fff;padding:0;max-width:none}
 #ps h2{font-size:16px}.pg{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pg img{width:100%;border:1px solid #999}#ps table{font-size:11px}#ps th,#ps td{border-bottom:1px solid #999;color:#000}}
+#tb{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:6px}#tb button{width:42px;height:42px;padding:0;font-size:19px;opacity:.93}
 </style></head><body>
 <h1>Engineering Studio · Pipe Sketch</h1>
-<div class="card"><canvas id="cv"></canvas>
-<div class="row" id="views"><button data-v="iso" class="on">Iso</button><button data-v="front">Front</button><button data-v="top">Top</button><button data-v="side">Side</button><button id="zi">＋</button><button id="zo">－</button><button id="dm" class="on">Dimensions</button></div>
+<div class="card"><div style="position:relative"><canvas id="cv"></canvas><div id="tb"><button data-m="orbit" class="on" aria-label="Orbit" title="Orbit">⟳</button><button data-m="pan" aria-label="Pan" title="Pan">✥</button><button data-m="zoom" aria-label="Zoom" title="Zoom">±</button><button data-m="hold" aria-label="Scroll page" title="Scroll page">🔒</button><button id="home" aria-label="Home view" title="Home">⌂</button><button id="fitb" aria-label="Fit" title="Fit">⛶</button></div></div>
+<div class="row" id="views"><button data-v="iso" class="on">Iso</button><button data-v="front">Front</button><button data-v="top">Top</button><button data-v="side">Right</button><button data-v="left">Left</button><button data-v="back">Back</button><button data-v="bottom">Bottom</button><button id="zi">＋</button><button id="zo">－</button><button id="dm" class="on">Dimensions</button></div>
 <div class="g" style="margin-top:8px"><label>Dimension distance<input id="off" type="range" min="6" max="60" value="22"></label><label>Dimension text size<input id="ts" type="range" min="9" max="22" value="12"></label></div>
 <p class="note" id="sum"></p></div>
 
@@ -62,16 +63,16 @@ function build(items,start,nps,rf,OD){
  const add=(a,s,l)=>{len[s]=(len[s]||0)+l};
  items.forEach((it,i)=>{const N=i+1;
   if(it.t==="elbow"){const w=DIR[it.d];if(dot(h,w)!==0){warn.push("Item "+N+": elbow must turn 90° from the pipe direction.");return}
-   const R=od*rf,c=mv(p,w,R);let q=p;for(let j=1;j<=8;j++){const t=Math.PI/2*j/8,e=c.map((x,k)=>x-w[k]*R*Math.cos(t)+h[k]*R*Math.sin(t));P.push({a:q,b:e,k:"pipe",od});q=e}
+   const R=od*rf,c=mv(p,w,R);let q=p;for(let j=1;j<=8;j++){const t=Math.PI/2*j/8,e=c.map((x,k)=>x-w[k]*R*Math.cos(t)+h[k]*R*Math.sin(t));P.push({i:i,a:q,b:e,k:"pipe",od});q=e}
    rows.push([N,"90° elbow, centre to end",sz,Math.round(R)]);p=mv(mv(p,h,R),w,R);h=w;return}
   const l=Math.max(1,+it.len||1),q=mv(p,h,l);
-  if(it.t==="reducer"){rows.push([N,"Reducer to "+it.to,sz,l]);P.push({a:p,b:q,k:"red",od});sz=it.to;od=OD[sz]||od}
+  if(it.t==="reducer"){rows.push([N,"Reducer to "+it.to,sz,l]);P.push({i:i,a:p,b:q,k:"red",od});sz=it.to;od=OD[sz]||od}
   else{const nm=it.t==="pipe"?"Pipe (cut)":it.t==="valve"?(it.v||"Valve")+" valve":it.t==="flange"?"Flange":"Tee";
-   P.push({a:p,b:q,k:it.t,od,lab:it.t==="valve"?(it.v||"V")[0]:""});rows.push([N,nm,sz,l]);if(it.t==="pipe")add(0,sz,l)}
+   P.push({i:i,a:p,b:q,k:it.t,od,lab:it.t==="valve"?(it.v||"V")[0]:""});rows.push([N,nm,sz,l]);if(it.t==="pipe")add(0,sz,l)}
   D.push({a:p,b:q,x:l});
   if(it.t==="tee"){const w=DIR[it.d];if(Math.abs(dot(h,w))===1)warn.push("Item "+N+": tee branch must be at 90°.");else{
    const m=mv(p,h,l/2),b=Math.max(1,+it.b||1),e=mv(m,w,b),bv=Math.min(b-1,Math.max(0,+it.bv||0)),s=mv(e,w,-bv);
-   P.push({a:m,b:s,k:"pipe",od});if(bv)P.push({a:s,b:e,k:"valve",od,lab:"V"});D.push({a:m,b:e,x:b});
+   P.push({i:i,a:m,b:s,k:"pipe",od});if(bv)P.push({i:i,a:s,b:e,k:"valve",od,lab:"V"});D.push({a:m,b:e,x:b});
    rows.push([N+"b","Branch pipe (cut, tee centre to valve)",sz,b-bv]);add(0,sz,b-bv);if(bv)rows.push([N+"b","Branch valve",sz,bv])}}
   p=q});
  return{P,D,rows,warn,len,end:p}}
@@ -80,26 +81,26 @@ const kgm=(od,w)=>Math.PI/4*(od*od-(od-2*w)**2)*7850/1e6;
 const NEW={pipe:{t:"pipe",len:500},elbow:{t:"elbow",d:"+Z"},valve:{t:"valve",v:"Ball",len:150},flange:{t:"flange",len:20},reducer:{t:"reducer",len:150,to:"2"},tee:{t:"tee",len:200,d:"+Z",b:300,bv:0}};
 const PRE={fcu:{nps:"1",items:[{t:"pipe",len:300},{t:"valve",v:"Ball",len:90},{t:"pipe",len:150},{t:"valve",v:"Strainer",len:140},{t:"pipe",len:150},{t:"valve",v:"Balancing",len:120},{t:"pipe",len:250},{t:"elbow",d:"+Z"},{t:"pipe",len:400},{t:"elbow",d:"+Y"},{t:"pipe",len:300}]},
 chl:{nps:"4",items:[{t:"flange",len:25},{t:"valve",v:"Butterfly",len:60},{t:"flange",len:25},{t:"pipe",len:400},{t:"tee",len:250,d:"+Z",b:600,bv:80},{t:"pipe",len:800},{t:"tee",len:250,d:"+Z",b:600,bv:80},{t:"pipe",len:400}]}};
-let S={items:JSON.parse(JSON.stringify(PRE.fcu.items)),start:"+X",nps:"1",rf:"1.5",wall:"3.4",job:""},yaw=-.7,pit=.5,zm=1,dimOn=true,B=null;
+let S={items:JSON.parse(JSON.stringify(PRE.fcu.items)),start:"+X",nps:"1",rf:"1.5",wall:"3.4",job:""},yaw=-.7,pit=.5,zm=1,dimOn=true,B=null,pan=[0,0],selI=-1;
 try{const s=JSON.parse(localStorage.getItem("esps")||"null");if(s&&s.items)S=Object.assign(S,s)}catch(e){}
 Object.keys(OD).forEach(k=>$("nps").add(new Option(k+" in",k)));Object.keys(DIR).forEach(k=>$("start").add(new Option(k,k)));
 function sync(){["job","nps","wall","rf","start"].forEach(k=>$(k).value=S[k])}
 function proj(p,y,t){const cy=Math.cos(y),sy=Math.sin(y),cp=Math.cos(t),sp=Math.sin(t),wx=p[0]*cy-p[1]*sy,wy=p[0]*sy+p[1]*cy;return[wx,-(p[2]*cp+wy*sp),wy*cp-p[2]*sp]}
+function axes(x,y,t,H){const o=[38,H-38],L=26;[["X","#e5484d",[1,0,0]],["Y","#30a46c",[0,1,0]],["Z","#3e8bff",[0,0,1]]].forEach(([n,c,v])=>{const q=proj(v,y,t),e=[o[0]+q[0]*L,o[1]+q[1]*L];x.strokeStyle=x.fillStyle=c;x.lineWidth=2.5;x.beginPath();x.moveTo(o[0],o[1]);x.lineTo(e[0],e[1]);x.stroke();x.font="bold 12px system-ui";x.textAlign="center";x.fillText(n,o[0]+q[0]*(L+10),o[1]+q[1]*(L+10)+4)})}
 function draw(cv,y,t,W,H,dpr,g,z){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=g.cv;x.fillRect(0,0,W,H);
- const pts=B.P.flatMap(s=>[s.a,s.b]).concat([[0,0,0]]).map(p=>proj(p,y,t));let a=[1e9,1e9],b=[-1e9,-1e9];
- pts.forEach(p=>{a=[Math.min(a[0],p[0]),Math.min(a[1],p[1])];b=[Math.max(b[0],p[0]),Math.max(b[1],p[1])]});
- const sc=Math.min(W*.66/Math.max(b[0]-a[0],1),H*.66/Math.max(b[1]-a[1],1))*z,cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,P=p=>{const q=proj(p,y,t);return[(q[0]-cx)*sc+W/2,(q[1]-cy)*sc+H/2,q[2]]};
+ const wp=B.P.flatMap(s=>[s.a,s.b]),lo=[0,1,2].map(k=>Math.min(...wp.map(p=>p[k]))),hi=[0,1,2].map(k=>Math.max(...wp.map(p=>p[k]))),c3=lo.map((v,k)=>(v+hi[k])/2),rad=Math.max(1,...wp.map(p=>Math.hypot(p[0]-c3[0],p[1]-c3[1],p[2]-c3[2]))),q0=proj(c3,y,t),cx=q0[0],cy=q0[1],sc=Math.min(W,H)*.34/rad*z,P=p=>{const q=proj(p,y,t);return[(q[0]-cx)*sc+W/2+(g.pan?pan[0]:0),(q[1]-cy)*sc+H/2+(g.pan?pan[1]:0),q[2]]};
  x.lineCap="round";const W0={pipe:1,tee:1.15,valve:1.7,flange:1.6,red:1.25},C0={pipe:g.p1,tee:g.p1,valve:g.v,flange:g.p2,red:g.p1};
  B.P.map(s=>{const A=P(s.a),Z=P(s.b);return{A,Z,s,d:(A[2]+Z[2])/2}}).sort((m,n)=>n.d-m.d).forEach(({A,Z,s})=>{const w=Math.max(4,s.od*sc)*W0[s.k];x.lineCap=s.k==="valve"||s.k==="flange"?"butt":"round";
-  x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(Z[0],Z[1]);x.strokeStyle=g.p2;x.lineWidth=w+2;x.stroke();x.strokeStyle=C0[s.k];x.lineWidth=w;x.stroke();
+  if(s.i===selI&&g.pan){x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(Z[0],Z[1]);x.strokeStyle="#d9541e";x.lineWidth=w+8;x.stroke()}x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(Z[0],Z[1]);x.strokeStyle=g.p2;x.lineWidth=w+2;x.stroke();x.strokeStyle=C0[s.k];x.lineWidth=w;x.stroke();
   if(s.lab&&Math.hypot(Z[0]-A[0],Z[1]-A[1])>8){x.fillStyle="#fff";x.font="bold 11px system-ui";x.textAlign="center";x.fillText(s.lab,(A[0]+Z[0])/2,(A[1]+Z[1])/2+4)}});
+ axes(x,y,t,H);
  if(dimOn){const off=+$("off").value,fs=+$("ts").value;x.font=fs+"px system-ui,sans-serif";x.textAlign="center";x.strokeStyle=g.dim;x.lineWidth=1;
   B.D.forEach(d=>{const A=P(d.a),Z=P(d.b),dx=Z[0]-A[0],dy=Z[1]-A[1],n=Math.hypot(dx,dy);if(n<22)return;const ox=-dy/n*off,oy=dx/n*off,a1=[A[0]+ox,A[1]+oy],b1=[Z[0]+ox,Z[1]+oy];
    x.beginPath();x.moveTo(A[0]+ox*.25,A[1]+oy*.25);x.lineTo(a1[0]+ox*.08,a1[1]+oy*.08);x.moveTo(Z[0]+ox*.25,Z[1]+oy*.25);x.lineTo(b1[0]+ox*.08,b1[1]+oy*.08);x.moveTo(a1[0],a1[1]);x.lineTo(b1[0],b1[1]);x.stroke();
    x.fillStyle=g.dim;[[a1,1],[b1,-1]].forEach(([p,s])=>{x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(p[0]+s*dx/n*8-dy/n*3,p[1]+s*dy/n*8+dx/n*3);x.lineTo(p[0]+s*dx/n*8+dy/n*3,p[1]+s*dy/n*8-dx/n*3);x.fill()});
    x.save();x.translate((a1[0]+b1[0])/2,(a1[1]+b1[1])/2);let r=Math.atan2(dy,dx);if(r>Math.PI/2||r<-Math.PI/2)r+=Math.PI;x.rotate(r);const T=String(Math.round(d.x*10)/10),tw=x.measureText(T).width+8;
    x.fillStyle=g.cv;x.fillRect(-tw/2,-fs/2-2,tw,fs+4);x.fillStyle=g.dim;x.fillText(T,0,fs/3);x.restore()})}}
-const css=()=>{const s=getComputedStyle(document.documentElement),v=n=>s.getPropertyValue(n).trim();return{cv:v("--cv"),p1:v("--p1"),p2:v("--p2"),v:v("--v"),dim:v("--dim")}};
+const css=()=>{const s=getComputedStyle(document.documentElement),v=n=>s.getPropertyValue(n).trim();return{pan:1,cv:v("--cv"),p1:v("--p1"),p2:v("--p2"),v:v("--v"),dim:v("--dim")}};
 const LIGHT={cv:"#ffffff",p1:"#4aa3c4",p2:"#14485e",v:"#e0892b",dim:"#c4400f"};
 const paint=()=>{const c=$("cv");draw(c,yaw,pit,c.clientWidth,c.clientHeight,Math.min(2,devicePixelRatio||1),css(),zm)};
 function upd(){B=build(S.items,S.start,S.nps,+S.rf,OD);
@@ -117,18 +118,30 @@ function list(){$("items").innerHTML=S.items.map((it,i)=>{let f="";
  if(it.t==="valve")f=sel(i,"v","Type",["Ball","Gate","Globe","Check","Butterfly","Strainer","Balancing"].map(v=>"<option"+(v===it.v?" selected":"")+">"+v+"</option>").join(""))+fld(i,"len","Face to face (mm)",it.len);
  if(it.t==="reducer")f=fld(i,"len","Length (mm)",it.len)+sel(i,"to","To size",Object.keys(OD).map(v=>"<option"+(v===it.to?" selected":"")+">"+v+"</option>").join(""));
  if(it.t==="tee")f=fld(i,"len","Body length (mm)",it.len)+sel(i,"d","Branch to",dirs(it.d))+fld(i,"b","Branch length (mm)",it.b)+fld(i,"bv","Branch valve (mm)",it.bv);
- return'<div class="it"><div class="row" style="margin:0"><b style="flex:1">'+(i+1)+". "+it.t+'</b><button data-up="'+i+'">↑</button><button data-dn="'+i+'">↓</button><button data-del="'+i+'" aria-label="Delete">✕</button></div><div class="f">'+f+'</div></div>'}).join("")}
+ return'<div class="it" data-n="'+i+'"'+(i===selI?' style="border-color:var(--ac)"':"")+'><div class="row" style="margin:0"><b style="flex:1">'+(i+1)+". "+it.t+'</b><button data-dup="'+i+'" aria-label="Duplicate">⧉</button><button data-up="'+i+'">↑</button><button data-dn="'+i+'">↓</button><button data-del="'+i+'" aria-label="Delete">✕</button></div><div class="f">'+f+'</div></div>'}).join("")}
 $("items").addEventListener("input",e=>{const t=e.target,i=t.dataset.i;if(i==null)return;S.items[i][t.dataset.k]=t.type==="number"?+t.value:t.value;upd()});
-$("items").addEventListener("click",e=>{const d=e.target.dataset,a=S.items;if(d.del!=null)a.splice(+d.del,1);else if(d.up!=null&&+d.up>0)[a[+d.up-1],a[+d.up]]=[a[+d.up],a[+d.up-1]];else if(d.dn!=null&&+d.dn<a.length-1)[a[+d.dn+1],a[+d.dn]]=[a[+d.dn],a[+d.dn+1]];else return;list();upd()});
-$("adds").addEventListener("click",e=>{const k=e.target.dataset.a;if(!k)return;S.items.push(JSON.parse(JSON.stringify(NEW[k])));list();upd()});
+$("items").addEventListener("click",e=>{const d=e.target.dataset,a=S.items;if(d.del!=null){a.splice(+d.del,1);selI=-1}else if(d.dup!=null){a.splice(+d.dup+1,0,JSON.parse(JSON.stringify(a[+d.dup])));selI=+d.dup+1}else if(d.up!=null&&+d.up>0){[a[+d.up-1],a[+d.up]]=[a[+d.up],a[+d.up-1]];selI=+d.up-1}else if(d.dn!=null&&+d.dn<a.length-1){[a[+d.dn+1],a[+d.dn]]=[a[+d.dn],a[+d.dn+1]];selI=+d.dn+1}else return;list();upd()});
+const selc=e=>{const c=e.target.closest&&e.target.closest(".it");if(!c)return;selI=+c.dataset.n;document.querySelectorAll(".it").forEach((el,k)=>el.style.borderColor=k===selI?"var(--ac)":"");paint()};
+$("items").addEventListener("focusin",selc);$("items").addEventListener("click",selc);
+$("adds").addEventListener("click",e=>{const k=e.target.dataset.a;if(!k)return;S.items.splice(selI>=0?selI+1:S.items.length,0,JSON.parse(JSON.stringify(NEW[k])));if(selI>=0)selI++;list();upd()});
 ["job","nps","wall","rf","start"].forEach(k=>$(k).addEventListener("input",()=>{S[k]=$(k).value;upd()}));
 $("pre").onchange=()=>{const p=PRE[$("pre").value];if(!p)return;S.items=JSON.parse(JSON.stringify(p.items));S.nps=p.nps;S.wall=p.nps==="1"?"3.4":"6";S.start="+X";sync();list();upd();$("pre").value=""};
 $("dm").onclick=()=>{dimOn=!dimOn;$("dm").classList.toggle("on",dimOn);paint()};["off","ts"].forEach(i=>$(i).addEventListener("input",paint));
 $("zi").onclick=()=>{zm=Math.min(5,zm*1.25);paint()};$("zo").onclick=()=>{zm=Math.max(.3,zm/1.25);paint()};
-$("views").addEventListener("click",e=>{const v=e.target.dataset.v;if(!v)return;[yaw,pit]=v==="iso"?[-.7,.5]:v==="front"?[0,0]:v==="top"?[0,Math.PI/2-.001]:[Math.PI/2,0];document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v));paint()});
-let dr=null;const cv=$("cv");cv.addEventListener("pointerdown",e=>{dr=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)});
-cv.addEventListener("pointermove",e=>{if(!dr)return;yaw+=(e.clientX-dr[0])*.008;pit=Math.max(-1.5,Math.min(1.5,pit+(e.clientY-dr[1])*.008));dr=[e.clientX,e.clientY];paint()});
-cv.addEventListener("pointerup",()=>dr=null);cv.addEventListener("pointercancel",()=>dr=null);cv.addEventListener("wheel",e=>{e.preventDefault();zm=Math.max(.3,Math.min(5,zm*(e.deltaY<0?1.1:.9)));paint()},{passive:false});
+$("views").addEventListener("click",e=>{const v=e.target.dataset.v;if(!v)return;pan=[0,0];[yaw,pit]=VW[v]||VW.iso;document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v));paint()});
+const VW={iso:[-.7,.5],front:[0,0],back:[Math.PI,0],top:[0,Math.PI/2-.001],bottom:[0,-Math.PI/2+.001],side:[Math.PI/2,0],left:[-Math.PI/2,0]};
+const cv=$("cv"),pt=new Map();let mode="orbit";
+function setM(m){mode=m;cv.style.touchAction=m==="hold"?"pan-y":"none";document.querySelectorAll("[data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}setM("orbit");
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>setM(b.dataset.m));
+$("home").onclick=()=>{[yaw,pit]=VW.iso;pan=[0,0];zm=1;document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v==="iso"));paint()};
+$("fitb").onclick=()=>{pan=[0,0];zm=1;paint()};
+cv.addEventListener("pointerdown",e=>{if(mode==="hold")return;pt.set(e.pointerId,[e.clientX,e.clientY]);cv.setPointerCapture(e.pointerId)});
+cv.addEventListener("pointermove",e=>{if(!pt.has(e.pointerId))return;const o=pt.get(e.pointerId),n=[e.clientX,e.clientY],dx=n[0]-o[0],dy=n[1]-o[1];
+ if(pt.size===1){if(mode==="orbit"){yaw+=dx*.008;pit=Math.max(-1.55,Math.min(1.55,pit+dy*.008))}else if(mode==="pan"){pan[0]+=dx;pan[1]+=dy}else zm=Math.max(.3,Math.min(6,zm*(1-dy*.006)))}
+ else{const other=pt.get([...pt.keys()].find(i=>i!==e.pointerId)),d0=Math.hypot(o[0]-other[0],o[1]-other[1]),d1=Math.hypot(n[0]-other[0],n[1]-other[1]);if(d0>0)zm=Math.max(.3,Math.min(6,zm*d1/d0));pan[0]+=dx/2;pan[1]+=dy/2}
+ pt.set(e.pointerId,n);paint()});
+const up=e=>pt.delete(e.pointerId);cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+cv.addEventListener("wheel",e=>{e.preventDefault();zm=Math.max(.3,Math.min(5,zm*(e.deltaY<0?1.1:.9)));paint()},{passive:false});
 $("print").onclick=()=>{const im=document.querySelectorAll("#ps img");[[-.7,.5],[0,0],[0,Math.PI/2-.001],[Math.PI/2,0]].forEach(([y,t],i)=>{const c=document.createElement("canvas");draw(c,y,t,900,560,1,LIGHT,1);im[i].src=c.toDataURL("image/png")});
  $("pt").textContent=(S.job||"Pipe sketch")+" · NPS "+S.nps+" · "+new Date().toLocaleDateString();$("pn").textContent="All dimensions in mm, centre-line unless stated. Not approved for fabrication until checked by an engineer.";setTimeout(()=>window.print(),80)};
 $("copy").onclick=async()=>{const t=B.rows.map(r=>r.join("\t")).join("\n");try{await navigator.clipboard.writeText(t);$("copy").textContent="Copied"}catch(e){$("copy").textContent="Copy blocked"}setTimeout(()=>$("copy").textContent="Copy cut list",1500)};
