@@ -25,9 +25,10 @@ th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--ln);white-s
 @media print{@page{size:A4 landscape;margin:10mm}body>*:not(#ps){display:none!important}#ps{display:block;color:#000;background:#fff}body{background:#fff;padding:0;max-width:none}
 #ps h2{font-size:16px}.pg{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pg img{width:100%;border:1px solid #999}#ps table{font-size:11px}#ps th,#ps td{border-bottom:1px solid #999;color:#000}}
 #tb{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:6px}#tb button{width:42px;height:42px;padding:0;font-size:19px;opacity:.93}
+#joy{position:absolute;left:10px;bottom:10px;width:110px;height:110px;border-radius:50%;background:rgba(128,128,128,.28);border:2px solid rgba(128,128,128,.5);touch-action:none;display:none}#ball{position:absolute;left:31px;top:31px;width:48px;height:48px;border-radius:50%;background:var(--ac);pointer-events:none}#hb{position:absolute;right:62px;bottom:10px;display:none;flex-direction:column;gap:6px}#hb button{width:42px;height:42px;padding:0;font-size:16px}
 </style></head><body>
 <h1>Engineering Studio · Pipe Sketch</h1>
-<div class="card"><div style="position:relative"><canvas id="cv"></canvas><div id="tb"><button data-m="orbit" class="on" aria-label="Orbit" title="Orbit">⟳</button><button data-m="pan" aria-label="Pan" title="Pan">✥</button><button data-m="zoom" aria-label="Zoom" title="Zoom">±</button><button data-m="hold" aria-label="Scroll page" title="Scroll page">🔒</button><button id="home" aria-label="Home view" title="Home">⌂</button><button id="fitb" aria-label="Fit" title="Fit">⛶</button></div></div>
+<div class="card"><div style="position:relative"><canvas id="cv"></canvas><div id="tb"><button data-m="orbit" class="on" aria-label="Orbit" title="Orbit">⟳</button><button data-m="pan" aria-label="Pan" title="Pan">✥</button><button data-m="zoom" aria-label="Zoom" title="Zoom">±</button><button data-m="hold" aria-label="Scroll page" title="Scroll page">🔒</button><button id="walk" aria-label="Walk around" title="Walk around">🚶</button><button id="home" aria-label="Home view" title="Home">⌂</button><button id="fitb" aria-label="Fit" title="Fit">⛶</button></div><div id="joy"><div id="ball"></div></div><div id="hb"><button id="hu" aria-label="Move up">▲</button><button id="hd" aria-label="Move down">▼</button></div></div>
 <div class="row" id="views"><button data-v="iso" class="on">Iso</button><button data-v="front">Front</button><button data-v="top">Top</button><button data-v="side">Right</button><button data-v="left">Left</button><button data-v="back">Back</button><button data-v="bottom">Bottom</button><button id="zi">＋</button><button id="zo">－</button><button id="dm" class="on">Dimensions</button></div>
 <div class="g" style="margin-top:8px"><label>Dimension distance<input id="off" type="range" min="6" max="60" value="22"></label><label>Dimension text size<input id="ts" type="range" min="9" max="22" value="12"></label></div>
 <p class="note" id="sum"></p></div>
@@ -102,7 +103,7 @@ function draw(cv,y,t,W,H,dpr,g,z){cv.width=Math.round(W*dpr);cv.height=Math.roun
    x.fillStyle=g.cv;x.fillRect(-tw/2,-fs/2-2,tw,fs+4);x.fillStyle=g.dim;x.fillText(T,0,fs/3);x.restore()})}}
 const css=()=>{const s=getComputedStyle(document.documentElement),v=n=>s.getPropertyValue(n).trim();return{pan:1,cv:v("--cv"),p1:v("--p1"),p2:v("--p2"),v:v("--v"),dim:v("--dim")}};
 const LIGHT={cv:"#ffffff",p1:"#4aa3c4",p2:"#14485e",v:"#e0892b",dim:"#c4400f"};
-const paint=()=>{const c=$("cv");draw(c,yaw,pit,c.clientWidth,c.clientHeight,Math.min(2,devicePixelRatio||1),css(),zm)};
+const paint=()=>{const c=$("cv"),W=c.clientWidth,H=c.clientHeight,d=Math.min(2,devicePixelRatio||1);if(walk)drawWalk(c,W,H,d,css());else draw(c,yaw,pit,W,H,d,css(),zm)};
 function upd(){B=build(S.items,S.start,S.nps,+S.rf,OD);
  const tb=r=>"<tr>"+r.map(c=>"<td>"+c+"</td>").join("")+"</tr>";$("rows").innerHTML=B.rows.map(tb).join("");$("pr").innerHTML=B.rows.map(tb).join("");
  const all=B.P.flatMap(s=>[s.a,s.b]),e=[0,1,2].map(k=>Math.round(Math.max(...all.map(p=>p[k]))-Math.min(...all.map(p=>p[k]))));
@@ -128,15 +129,44 @@ $("adds").addEventListener("click",e=>{const k=e.target.dataset.a;if(!k)return;S
 $("pre").onchange=()=>{const p=PRE[$("pre").value];if(!p)return;S.items=JSON.parse(JSON.stringify(p.items));S.nps=p.nps;S.wall=p.nps==="1"?"3.4":"6";S.start="+X";sync();list();upd();$("pre").value=""};
 $("dm").onclick=()=>{dimOn=!dimOn;$("dm").classList.toggle("on",dimOn);paint()};["off","ts"].forEach(i=>$(i).addEventListener("input",paint));
 $("zi").onclick=()=>{zm=Math.min(5,zm*1.25);paint()};$("zo").onclick=()=>{zm=Math.max(.3,zm/1.25);paint()};
-$("views").addEventListener("click",e=>{const v=e.target.dataset.v;if(!v)return;pan=[0,0];[yaw,pit]=VW[v]||VW.iso;document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v));paint()});
+$("views").addEventListener("click",e=>{const v=e.target.dataset.v;if(!v)return;if(walk)setWalk(false);pan=[0,0];[yaw,pit]=VW[v]||VW.iso;document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v));paint()});
 const VW={iso:[-.7,.5],front:[0,0],back:[Math.PI,0],top:[0,Math.PI/2-.001],bottom:[0,-Math.PI/2+.001],side:[Math.PI/2,0],left:[-Math.PI/2,0]};
+let walk=false,cam={p:[0,0,0],yaw:0,pit:0},joy=[0,0],lastT=0;
+function info(){const wp=B.P.flatMap(s=>[s.a,s.b]),lo=[0,1,2].map(k=>Math.min(...wp.map(p=>p[k]))),hi=[0,1,2].map(k=>Math.max(...wp.map(p=>p[k]))),c3=lo.map((v,k)=>(v+hi[k])/2);return{c3,zmin:lo[2],rad:Math.max(100,...wp.map(p=>Math.hypot(p[0]-c3[0],p[1]-c3[1],p[2]-c3[2])))}}
+function initCam(){const i=info(),p=[i.c3[0]-i.rad*1.6,i.c3[1]-i.rad*2.2,i.c3[2]+i.rad*.9],v=[i.c3[0]-p[0],i.c3[1]-p[1],i.c3[2]-p[2]];cam={p,yaw:Math.atan2(v[0],v[1]),pit:Math.atan2(v[2],Math.hypot(v[0],v[1]))}}
+function drawWalk(c,W,H,dpr,g){c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);const x=c.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=g.cv;x.fillRect(0,0,W,H);
+ const I=info(),sp=Math.sin(cam.pit),cp=Math.cos(cam.pit),sy=Math.sin(cam.yaw),cy=Math.cos(cam.yaw),d=[cp*sy,cp*cy,sp],r=[cy,-sy,0],u=[-sp*sy,-sp*cy,cp],F=W*.9,N=10,gz=I.zmin;
+ const cm=p=>{const v=[p[0]-cam.p[0],p[1]-cam.p[1],p[2]-cam.p[2]];return[v[0]*r[0]+v[1]*r[1],v[0]*u[0]+v[1]*u[1]+v[2]*u[2],v[0]*d[0]+v[1]*d[1]+v[2]*d[2]]};
+ const seg=(a,b)=>{a=cm(a);b=cm(b);if(a[2]<N&&b[2]<N)return null;if(a[2]<N){const t=(N-a[2])/(b[2]-a[2]);a=a.map((v,k)=>v+t*(b[k]-v))}else if(b[2]<N){const t=(N-b[2])/(a[2]-b[2]);b=b.map((v,k)=>v+t*(a[k]-v))}return{A:[W/2+F*a[0]/a[2],H/2-F*a[1]/a[2]],Z:[W/2+F*b[0]/b[2],H/2-F*b[1]/b[2]],z:(a[2]+b[2])/2}};
+ const st=Math.pow(10,Math.floor(Math.log10(I.rad/3))),M=Math.min(40,Math.ceil(3*I.rad/st)),gx=Math.round(I.c3[0]/st)*st,gy=Math.round(I.c3[1]/st)*st;
+ x.globalAlpha=.3;x.strokeStyle=g.p2;x.lineWidth=1;x.beginPath();
+ for(let i=-M;i<=M;i++)[[[gx+i*st,gy-M*st,gz],[gx+i*st,gy+M*st,gz]],[[gx-M*st,gy+i*st,gz],[gx+M*st,gy+i*st,gz]]].forEach(([a,b])=>{const q=seg(a,b);if(q){x.moveTo(q.A[0],q.A[1]);x.lineTo(q.Z[0],q.Z[1])}});x.stroke();x.globalAlpha=1;
+ const W0={pipe:1,tee:1.15,valve:1.7,flange:1.6,red:1.25},C0={pipe:g.p1,tee:g.p1,valve:g.v,flange:g.p2,red:g.p1};
+ const L=B.P.map(s=>({s,q:seg(s.a,s.b),h:seg([s.a[0],s.a[1],gz],[s.b[0],s.b[1],gz])})).filter(o=>o.q);
+ x.lineCap="round";x.globalAlpha=.25;x.strokeStyle="#000";L.forEach(o=>{if(!o.h)return;x.lineWidth=Math.max(2,o.s.od*F/o.h.z);x.beginPath();x.moveTo(o.h.A[0],o.h.A[1]);x.lineTo(o.h.Z[0],o.h.Z[1]);x.stroke()});x.globalAlpha=1;
+ L.sort((m,n)=>n.q.z-m.q.z).forEach(({s,q})=>{const w=Math.max(3,s.od*F/q.z)*W0[s.k];x.lineCap=s.k==="valve"||s.k==="flange"?"butt":"round";
+  if(s.i===selI){x.beginPath();x.moveTo(q.A[0],q.A[1]);x.lineTo(q.Z[0],q.Z[1]);x.strokeStyle="#d9541e";x.lineWidth=w+8;x.stroke()}
+  x.beginPath();x.moveTo(q.A[0],q.A[1]);x.lineTo(q.Z[0],q.Z[1]);x.strokeStyle=g.p2;x.lineWidth=w+2;x.stroke();x.strokeStyle=C0[s.k];x.lineWidth=w;x.stroke()})}
+function walkLook(e,o,n,dx,dy){if(pt.size===1){cam.yaw+=dx*.006;cam.pit=Math.max(-1.5,Math.min(1.5,cam.pit-dy*.006))}else{const ot=pt.get([...pt.keys()].find(i=>i!==e.pointerId)),d0=Math.hypot(o[0]-ot[0],o[1]-ot[1]),d1=Math.hypot(n[0]-ot[0],n[1]-ot[1]),k=info().rad*(d1-d0)/150;cam.p[0]+=Math.cos(cam.pit)*Math.sin(cam.yaw)*k;cam.p[1]+=Math.cos(cam.pit)*Math.cos(cam.yaw)*k;cam.p[2]+=Math.sin(cam.pit)*k}}
+function tick(t){if(!walk)return;const dt=Math.min(.05,(t-lastT)/1000);lastT=t;if(joy[0]||joy[1]){const sp=info().rad*.9*dt,cp=Math.cos(cam.pit),f=-joy[1];cam.p[0]+=(f*cp*Math.sin(cam.yaw)+joy[0]*Math.cos(cam.yaw))*sp;cam.p[1]+=(f*cp*Math.cos(cam.yaw)-joy[0]*Math.sin(cam.yaw))*sp;cam.p[2]+=f*Math.sin(cam.pit)*sp;paint()}requestAnimationFrame(tick)}
+function setWalk(on){walk=on;$("joy").style.display=on?"block":"none";$("hb").style.display=on?"flex":"none";$("walk").classList.toggle("on",on);
+ if(on){initCam();cv.style.touchAction="none";document.querySelectorAll("[data-m]").forEach(b=>b.classList.remove("on"));lastT=performance.now();requestAnimationFrame(tick)}else setM(mode);paint()}
 const cv=$("cv"),pt=new Map();let mode="orbit";
-function setM(m){mode=m;cv.style.touchAction=m==="hold"?"pan-y":"none";document.querySelectorAll("[data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}setM("orbit");
+function setM(m){mode=m;if(walk)setWalk(false);cv.style.touchAction=m==="hold"?"pan-y":"none";document.querySelectorAll("[data-m]").forEach(b=>b.classList.toggle("on",b.dataset.m===m))}setM("orbit");
 document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>setM(b.dataset.m));
-$("home").onclick=()=>{[yaw,pit]=VW.iso;pan=[0,0];zm=1;document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v==="iso"));paint()};
+$("walk").onclick=()=>setWalk(!walk);
+$("hu").onclick=()=>{cam.p[2]+=info().rad*.12;paint()};$("hd").onclick=()=>{cam.p[2]-=info().rad*.12;paint()};
+const joyEl=$("joy"),ball=$("ball");let jp=null;
+const jm=e=>{const r=joyEl.getBoundingClientRect();let dx=e.clientX-(r.left+55),dy=e.clientY-(r.top+55);const L=Math.hypot(dx,dy),M=41;if(L>M){dx*=M/L;dy*=M/L}ball.style.transform="translate("+dx+"px,"+dy+"px)";joy=[dx/M,dy/M]};
+joyEl.addEventListener("pointerdown",e=>{jp=e.pointerId;joyEl.setPointerCapture(e.pointerId);jm(e)});
+joyEl.addEventListener("pointermove",e=>{if(e.pointerId===jp)jm(e)});
+const jend=e=>{if(e.pointerId!==jp)return;jp=null;joy=[0,0];ball.style.transform=""};
+joyEl.addEventListener("pointerup",jend);joyEl.addEventListener("pointercancel",jend);
+$("home").onclick=()=>{if(walk){initCam();paint();return}[yaw,pit]=VW.iso;pan=[0,0];zm=1;document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v==="iso"));paint()};
 $("fitb").onclick=()=>{pan=[0,0];zm=1;paint()};
 cv.addEventListener("pointerdown",e=>{if(mode==="hold")return;pt.set(e.pointerId,[e.clientX,e.clientY]);cv.setPointerCapture(e.pointerId)});
 cv.addEventListener("pointermove",e=>{if(!pt.has(e.pointerId))return;const o=pt.get(e.pointerId),n=[e.clientX,e.clientY],dx=n[0]-o[0],dy=n[1]-o[1];
+ if(walk){walkLook(e,o,n,dx,dy);pt.set(e.pointerId,n);paint();return}
  if(pt.size===1){if(mode==="orbit"){yaw+=dx*.008;pit=Math.max(-1.55,Math.min(1.55,pit+dy*.008))}else if(mode==="pan"){pan[0]+=dx;pan[1]+=dy}else zm=Math.max(.3,Math.min(6,zm*(1-dy*.006)))}
  else{const other=pt.get([...pt.keys()].find(i=>i!==e.pointerId)),d0=Math.hypot(o[0]-other[0],o[1]-other[1]),d1=Math.hypot(n[0]-other[0],n[1]-other[1]);if(d0>0)zm=Math.max(.3,Math.min(6,zm*d1/d0));pan[0]+=dx/2;pan[1]+=dy/2}
  pt.set(e.pointerId,n);paint()});
