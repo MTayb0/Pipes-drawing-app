@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Engineering Studio – Pipe Sketch</title>
+<style>
+:root{--bg:#eceff1;--fg:#17212b;--card:#fff;--mut:#5d6b78;--ac:#d9541e;--ln:#cfd6dc;--p1:#4aa3c4;--p2:#14485e;--v:#e0892b;--dim:#d9541e;--cv:#f9fafb;color-scheme:light;box-sizing:border-box}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10171e;--fg:#e6edf3;--card:#18222c;--mut:#93a3b1;--ln:#2a3846;--p1:#6fc0de;--p2:#0b2a38;--v:#f0a04b;--dim:#ff8a57;--cv:#0c1218;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10171e;--fg:#e6edf3;--card:#18222c;--mut:#93a3b1;--ln:#2a3846;--p1:#6fc0de;--p2:#0b2a38;--v:#f0a04b;--dim:#ff8a57;--cv:#0c1218;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:760px;margin-inline:auto;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+h1{font:600 18px/1.2 system-ui,sans-serif;margin:4px 0 10px}h2{font:600 15px/1.2 system-ui,sans-serif;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:10px;padding:10px;margin-bottom:10px}
+canvas{width:100%;height:48vh;min-height:280px;display:block;background:var(--cv);border-radius:8px;touch-action:none}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}
+button,select,input{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--ln);border-radius:8px;padding:8px 10px;min-height:40px}
+button.on,button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.g{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mut)}label input,label select{width:100%;color:var(--fg)}
+.it{border:1px solid var(--ln);border-radius:8px;padding:8px;margin-bottom:8px}
+.it b{font-size:13px}.it .f{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:6px;margin-top:6px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--ln);white-space:nowrap}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+.warn{color:var(--dim);font-size:13px;margin:6px 0 0}.note{color:var(--mut);font-size:12px;margin:8px 0 0}
+#ps{display:none}
+@media print{@page{size:A4 landscape;margin:10mm}body>*:not(#ps){display:none!important}#ps{display:block;color:#000;background:#fff}body{background:#fff;padding:0;max-width:none}
+#ps h2{font-size:16px}.pg{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pg img{width:100%;border:1px solid #999}#ps table{font-size:11px}#ps th,#ps td{border-bottom:1px solid #999;color:#000}}
+</style></head><body>
+<h1>Engineering Studio · Pipe Sketch</h1>
+<div class="card"><canvas id="cv"></canvas>
+<div class="row" id="views"><button data-v="iso" class="on">Iso</button><button data-v="front">Front</button><button data-v="top">Top</button><button data-v="side">Side</button><button id="zi">＋</button><button id="zo">－</button><button id="dm" class="on">Dimensions</button></div>
+<div class="g" style="margin-top:8px"><label>Dimension distance<input id="off" type="range" min="6" max="60" value="22"></label><label>Dimension text size<input id="ts" type="range" min="9" max="22" value="12"></label></div>
+<p class="note" id="sum"></p></div>
+
+<div class="card"><h2>Job</h2><div class="g">
+<label>Job or tag name<input id="job" placeholder="e.g. FCU-3 valve package"></label>
+<label>Pipe size (NPS, inches)<select id="nps"></select></label>
+<label>Wall thickness (mm)<input id="wall" type="number" step="0.1" min="1"></label>
+<label>Elbow radius (× OD)<select id="rf"><option value="1.5">1.5 long radius</option><option value="1">1.0 short radius</option><option value="3">3.0 bend</option></select></label>
+<label>Start direction<select id="start"></select></label>
+<label>Load example<select id="pre"><option value="">Choose…</option><option value="fcu">FCU valve package</option><option value="chl">Chiller header with branches</option></select></label>
+</div></div>
+
+<div class="card"><h2>Items in order along the pipe</h2><div id="items"></div>
+<div class="row" id="adds"><button data-a="pipe">+ Pipe</button><button data-a="elbow">+ Elbow</button><button data-a="valve">+ Valve</button><button data-a="flange">+ Flange</button><button data-a="reducer">+ Reducer</button><button data-a="tee">+ Tee</button></div>
+<p class="warn" id="warn"></p>
+<p class="note">Valve, flange and fitting lengths start with placeholder values. Replace them with the length from the actual valve or fitting data sheet.</p></div>
+
+<div class="card"><h2>Cut list</h2><div class="tw"><table><thead><tr><th>#</th><th>Item</th><th>Size</th><th>mm</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="row"><button id="print" class="pri">Print sheet (4 views)</button><button id="copy">Copy cut list</button></div>
+<p class="note">Beta. Check all dimensions with a qualified engineer before cutting material.</p></div>
+
+<section id="ps"><h2 id="pt"></h2><div class="pg"><img alt="Isometric"><img alt="Front"><img alt="Top"><img alt="Side"></div><table><thead><tr><th>#</th><th>Item</th><th>Size</th><th>mm</th></tr></thead><tbody id="pr"></tbody></table><p id="pn"></p></section>
+
+<script>
+const $=id=>document.getElementById(id);
+const OD={"1/2":21.3,"3/4":26.7,"1":33.4,"1-1/4":42.2,"1-1/2":48.3,"2":60.3,"2-1/2":73,"3":88.9,"4":114.3,"5":141.3,"6":168.3,"8":219.1,"10":273.1,"12":323.9};
+const DIR={"+X":[1,0,0],"-X":[-1,0,0],"+Y":[0,1,0],"-Y":[0,-1,0],"+Z":[0,0,1],"-Z":[0,0,-1]};
+//CALC
+function build(items,start,nps,rf,OD){
+ const P=[],D=[],rows=[],warn=[],len={};let p=[0,0,0],h=DIR[start],sz=nps,od=OD[nps];
+ const mv=(q,v,l)=>q.map((x,k)=>x+v[k]*l),dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+ const add=(a,s,l)=>{len[s]=(len[s]||0)+l};
+ items.forEach((it,i)=>{const N=i+1;
+  if(it.t==="elbow"){const w=DIR[it.d];if(dot(h,w)!==0){warn.push("Item "+N+": elbow must turn 90° from the pipe direction.");return}
+   const R=od*rf,c=mv(p,w,R);let q=p;for(let j=1;j<=8;j++){const t=Math.PI/2*j/8,e=c.map((x,k)=>x-w[k]*R*Math.cos(t)+h[k]*R*Math.sin(t));P.push({a:q,b:e,k:"pipe",od});q=e}
+   rows.push([N,"90° elbow, centre to end",sz,Math.round(R)]);p=mv(mv(p,h,R),w,R);h=w;return}
+  const l=Math.max(1,+it.len||1),q=mv(p,h,l);
+  if(it.t==="reducer"){rows.push([N,"Reducer to "+it.to,sz,l]);P.push({a:p,b:q,k:"red",od});sz=it.to;od=OD[sz]||od}
+  else{const nm=it.t==="pipe"?"Pipe (cut)":it.t==="valve"?(it.v||"Valve")+" valve":it.t==="flange"?"Flange":"Tee";
+   P.push({a:p,b:q,k:it.t,od,lab:it.t==="valve"?(it.v||"V")[0]:""});rows.push([N,nm,sz,l]);if(it.t==="pipe")add(0,sz,l)}
+  D.push({a:p,b:q,x:l});
+  if(it.t==="tee"){const w=DIR[it.d];if(Math.abs(dot(h,w))===1)warn.push("Item "+N+": tee branch must be at 90°.");else{
+   const m=mv(p,h,l/2),b=Math.max(1,+it.b||1),e=mv(m,w,b),bv=Math.min(b-1,Math.max(0,+it.bv||0)),s=mv(e,w,-bv);
+   P.push({a:m,b:s,k:"pipe",od});if(bv)P.push({a:s,b:e,k:"valve",od,lab:"V"});D.push({a:m,b:e,x:b});
+   rows.push([N+"b","Branch pipe (cut, tee centre to valve)",sz,b-bv]);add(0,sz,b-bv);if(bv)rows.push([N+"b","Branch valve",sz,bv])}}
+  p=q});
+ return{P,D,rows,warn,len,end:p}}
+//ENDCALC
+const kgm=(od,w)=>Math.PI/4*(od*od-(od-2*w)**2)*7850/1e6;
+const NEW={pipe:{t:"pipe",len:500},elbow:{t:"elbow",d:"+Z"},valve:{t:"valve",v:"Ball",len:150},flange:{t:"flange",len:20},reducer:{t:"reducer",len:150,to:"2"},tee:{t:"tee",len:200,d:"+Z",b:300,bv:0}};
+const PRE={fcu:{nps:"1",items:[{t:"pipe",len:300},{t:"valve",v:"Ball",len:90},{t:"pipe",len:150},{t:"valve",v:"Strainer",len:140},{t:"pipe",len:150},{t:"valve",v:"Balancing",len:120},{t:"pipe",len:250},{t:"elbow",d:"+Z"},{t:"pipe",len:400},{t:"elbow",d:"+Y"},{t:"pipe",len:300}]},
+chl:{nps:"4",items:[{t:"flange",len:25},{t:"valve",v:"Butterfly",len:60},{t:"flange",len:25},{t:"pipe",len:400},{t:"tee",len:250,d:"+Z",b:600,bv:80},{t:"pipe",len:800},{t:"tee",len:250,d:"+Z",b:600,bv:80},{t:"pipe",len:400}]}};
+let S={items:JSON.parse(JSON.stringify(PRE.fcu.items)),start:"+X",nps:"1",rf:"1.5",wall:"3.4",job:""},yaw=-.7,pit=.5,zm=1,dimOn=true,B=null;
+try{const s=JSON.parse(localStorage.getItem("esps")||"null");if(s&&s.items)S=Object.assign(S,s)}catch(e){}
+Object.keys(OD).forEach(k=>$("nps").add(new Option(k+" in",k)));Object.keys(DIR).forEach(k=>$("start").add(new Option(k,k)));
+function sync(){["job","nps","wall","rf","start"].forEach(k=>$(k).value=S[k])}
+function proj(p,y,t){const cy=Math.cos(y),sy=Math.sin(y),cp=Math.cos(t),sp=Math.sin(t),wx=p[0]*cy-p[1]*sy,wy=p[0]*sy+p[1]*cy;return[wx,-(p[2]*cp+wy*sp),wy*cp-p[2]*sp]}
+function draw(cv,y,t,W,H,dpr,g,z){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);const x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.fillStyle=g.cv;x.fillRect(0,0,W,H);
+ const pts=B.P.flatMap(s=>[s.a,s.b]).concat([[0,0,0]]).map(p=>proj(p,y,t));let a=[1e9,1e9],b=[-1e9,-1e9];
+ pts.forEach(p=>{a=[Math.min(a[0],p[0]),Math.min(a[1],p[1])];b=[Math.max(b[0],p[0]),Math.max(b[1],p[1])]});
+ const sc=Math.min(W*.66/Math.max(b[0]-a[0],1),H*.66/Math.max(b[1]-a[1],1))*z,cx=(a[0]+b[0])/2,cy=(a[1]+b[1])/2,P=p=>{const q=proj(p,y,t);return[(q[0]-cx)*sc+W/2,(q[1]-cy)*sc+H/2,q[2]]};
+ x.lineCap="round";const W0={pipe:1,tee:1.15,valve:1.7,flange:1.6,red:1.25},C0={pipe:g.p1,tee:g.p1,valve:g.v,flange:g.p2,red:g.p1};
+ B.P.map(s=>{const A=P(s.a),Z=P(s.b);return{A,Z,s,d:(A[2]+Z[2])/2}}).sort((m,n)=>n.d-m.d).forEach(({A,Z,s})=>{const w=Math.max(4,s.od*sc)*W0[s.k];x.lineCap=s.k==="valve"||s.k==="flange"?"butt":"round";
+  x.beginPath();x.moveTo(A[0],A[1]);x.lineTo(Z[0],Z[1]);x.strokeStyle=g.p2;x.lineWidth=w+2;x.stroke();x.strokeStyle=C0[s.k];x.lineWidth=w;x.stroke();
+  if(s.lab&&Math.hypot(Z[0]-A[0],Z[1]-A[1])>8){x.fillStyle="#fff";x.font="bold 11px system-ui";x.textAlign="center";x.fillText(s.lab,(A[0]+Z[0])/2,(A[1]+Z[1])/2+4)}});
+ if(dimOn){const off=+$("off").value,fs=+$("ts").value;x.font=fs+"px system-ui,sans-serif";x.textAlign="center";x.strokeStyle=g.dim;x.lineWidth=1;
+  B.D.forEach(d=>{const A=P(d.a),Z=P(d.b),dx=Z[0]-A[0],dy=Z[1]-A[1],n=Math.hypot(dx,dy);if(n<22)return;const ox=-dy/n*off,oy=dx/n*off,a1=[A[0]+ox,A[1]+oy],b1=[Z[0]+ox,Z[1]+oy];
+   x.beginPath();x.moveTo(A[0]+ox*.25,A[1]+oy*.25);x.lineTo(a1[0]+ox*.08,a1[1]+oy*.08);x.moveTo(Z[0]+ox*.25,Z[1]+oy*.25);x.lineTo(b1[0]+ox*.08,b1[1]+oy*.08);x.moveTo(a1[0],a1[1]);x.lineTo(b1[0],b1[1]);x.stroke();
+   x.fillStyle=g.dim;[[a1,1],[b1,-1]].forEach(([p,s])=>{x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(p[0]+s*dx/n*8-dy/n*3,p[1]+s*dy/n*8+dx/n*3);x.lineTo(p[0]+s*dx/n*8+dy/n*3,p[1]+s*dy/n*8-dx/n*3);x.fill()});
+   x.save();x.translate((a1[0]+b1[0])/2,(a1[1]+b1[1])/2);let r=Math.atan2(dy,dx);if(r>Math.PI/2||r<-Math.PI/2)r+=Math.PI;x.rotate(r);const T=String(Math.round(d.x*10)/10),tw=x.measureText(T).width+8;
+   x.fillStyle=g.cv;x.fillRect(-tw/2,-fs/2-2,tw,fs+4);x.fillStyle=g.dim;x.fillText(T,0,fs/3);x.restore()})}}
+const css=()=>{const s=getComputedStyle(document.documentElement),v=n=>s.getPropertyValue(n).trim();return{cv:v("--cv"),p1:v("--p1"),p2:v("--p2"),v:v("--v"),dim:v("--dim")}};
+const LIGHT={cv:"#ffffff",p1:"#4aa3c4",p2:"#14485e",v:"#e0892b",dim:"#c4400f"};
+const paint=()=>{const c=$("cv");draw(c,yaw,pit,c.clientWidth,c.clientHeight,Math.min(2,devicePixelRatio||1),css(),zm)};
+function upd(){B=build(S.items,S.start,S.nps,+S.rf,OD);
+ const tb=r=>"<tr>"+r.map(c=>"<td>"+c+"</td>").join("")+"</tr>";$("rows").innerHTML=B.rows.map(tb).join("");$("pr").innerHTML=B.rows.map(tb).join("");
+ const all=B.P.flatMap(s=>[s.a,s.b]),e=[0,1,2].map(k=>Math.round(Math.max(...all.map(p=>p[k]))-Math.min(...all.map(p=>p[k]))));
+ let kg=0,tl=0;for(const z in B.len){kg+=B.len[z]/1000*kgm(OD[z],+S.wall||1);tl+=B.len[z]}
+ $("sum").textContent="Overall X "+e[0]+" × Y "+e[1]+" × Z "+e[2]+" mm · pipe to cut "+Math.round(tl)+" mm · about "+kg.toFixed(1)+" kg (single wall value)";
+ $("warn").textContent=B.warn.join(" ");try{localStorage.setItem("esps",JSON.stringify(S))}catch(e){}paint()}
+const dirs=k=>Object.keys(DIR).map(d=>"<option"+(d===k?" selected":"")+">"+d+"</option>").join("");
+const fld=(i,k,l,v)=>'<label>'+l+'<input type="number" inputmode="decimal" min="0" data-i="'+i+'" data-k="'+k+'" value="'+v+'"></label>';
+const sel=(i,k,l,o)=>'<label>'+l+'<select data-i="'+i+'" data-k="'+k+'">'+o+'</select></label>';
+function list(){$("items").innerHTML=S.items.map((it,i)=>{let f="";
+ if(it.t==="pipe"||it.t==="flange")f=fld(i,"len","Length (mm)",it.len);
+ if(it.t==="elbow")f=sel(i,"d","Turn to",dirs(it.d));
+ if(it.t==="valve")f=sel(i,"v","Type",["Ball","Gate","Globe","Check","Butterfly","Strainer","Balancing"].map(v=>"<option"+(v===it.v?" selected":"")+">"+v+"</option>").join(""))+fld(i,"len","Face to face (mm)",it.len);
+ if(it.t==="reducer")f=fld(i,"len","Length (mm)",it.len)+sel(i,"to","To size",Object.keys(OD).map(v=>"<option"+(v===it.to?" selected":"")+">"+v+"</option>").join(""));
+ if(it.t==="tee")f=fld(i,"len","Body length (mm)",it.len)+sel(i,"d","Branch to",dirs(it.d))+fld(i,"b","Branch length (mm)",it.b)+fld(i,"bv","Branch valve (mm)",it.bv);
+ return'<div class="it"><div class="row" style="margin:0"><b style="flex:1">'+(i+1)+". "+it.t+'</b><button data-up="'+i+'">↑</button><button data-dn="'+i+'">↓</button><button data-del="'+i+'" aria-label="Delete">✕</button></div><div class="f">'+f+'</div></div>'}).join("")}
+$("items").addEventListener("input",e=>{const t=e.target,i=t.dataset.i;if(i==null)return;S.items[i][t.dataset.k]=t.type==="number"?+t.value:t.value;upd()});
+$("items").addEventListener("click",e=>{const d=e.target.dataset,a=S.items;if(d.del!=null)a.splice(+d.del,1);else if(d.up!=null&&+d.up>0)[a[+d.up-1],a[+d.up]]=[a[+d.up],a[+d.up-1]];else if(d.dn!=null&&+d.dn<a.length-1)[a[+d.dn+1],a[+d.dn]]=[a[+d.dn],a[+d.dn+1]];else return;list();upd()});
+$("adds").addEventListener("click",e=>{const k=e.target.dataset.a;if(!k)return;S.items.push(JSON.parse(JSON.stringify(NEW[k])));list();upd()});
+["job","nps","wall","rf","start"].forEach(k=>$(k).addEventListener("input",()=>{S[k]=$(k).value;upd()}));
+$("pre").onchange=()=>{const p=PRE[$("pre").value];if(!p)return;S.items=JSON.parse(JSON.stringify(p.items));S.nps=p.nps;S.wall=p.nps==="1"?"3.4":"6";S.start="+X";sync();list();upd();$("pre").value=""};
+$("dm").onclick=()=>{dimOn=!dimOn;$("dm").classList.toggle("on",dimOn);paint()};["off","ts"].forEach(i=>$(i).addEventListener("input",paint));
+$("zi").onclick=()=>{zm=Math.min(5,zm*1.25);paint()};$("zo").onclick=()=>{zm=Math.max(.3,zm/1.25);paint()};
+$("views").addEventListener("click",e=>{const v=e.target.dataset.v;if(!v)return;[yaw,pit]=v==="iso"?[-.7,.5]:v==="front"?[0,0]:v==="top"?[0,Math.PI/2-.001]:[Math.PI/2,0];document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v));paint()});
+let dr=null;const cv=$("cv");cv.addEventListener("pointerdown",e=>{dr=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)});
+cv.addEventListener("pointermove",e=>{if(!dr)return;yaw+=(e.clientX-dr[0])*.008;pit=Math.max(-1.5,Math.min(1.5,pit+(e.clientY-dr[1])*.008));dr=[e.clientX,e.clientY];paint()});
+cv.addEventListener("pointerup",()=>dr=null);cv.addEventListener("pointercancel",()=>dr=null);cv.addEventListener("wheel",e=>{e.preventDefault();zm=Math.max(.3,Math.min(5,zm*(e.deltaY<0?1.1:.9)));paint()},{passive:false});
+$("print").onclick=()=>{const im=document.querySelectorAll("#ps img");[[-.7,.5],[0,0],[0,Math.PI/2-.001],[Math.PI/2,0]].forEach(([y,t],i)=>{const c=document.createElement("canvas");draw(c,y,t,900,560,1,LIGHT,1);im[i].src=c.toDataURL("image/png")});
+ $("pt").textContent=(S.job||"Pipe sketch")+" · NPS "+S.nps+" · "+new Date().toLocaleDateString();$("pn").textContent="All dimensions in mm, centre-line unless stated. Not approved for fabrication until checked by an engineer.";setTimeout(()=>window.print(),80)};
+$("copy").onclick=async()=>{const t=B.rows.map(r=>r.join("\t")).join("\n");try{await navigator.clipboard.writeText(t);$("copy").textContent="Copied"}catch(e){$("copy").textContent="Copy blocked"}setTimeout(()=>$("copy").textContent="Copy cut list",1500)};
+addEventListener("resize",()=>B&&paint());sync();list();upd();
+</script></body></html>
